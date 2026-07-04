@@ -61,6 +61,12 @@
   .homebtns{display:flex;gap:12px;margin-top:12px}
   .ghost{background:#232a55;color:var(--ink);border:none;border-radius:999px;padding:10px 20px;font-size:14px;cursor:pointer}
   .hint-key{margin-top:12px;color:var(--muted);font-size:11px;text-align:center}
+  .nameinput{padding:8px 12px;border-radius:10px;border:2px solid #3a4275;background:#151a3a;color:var(--ink);
+    font-size:15px;text-align:center;width:180px;outline:none;font-family:inherit}
+  .nameinput:focus{border-color:var(--accent);box-shadow:0 0 10px #ffd34d44}
+  .nameedit{display:flex;gap:8px;align-items:center;justify-content:center;margin:2px 0 12px;color:var(--muted);font-size:14px}
+  .nameedit .nameinput{width:150px}
+  .esc-hint{position:absolute;top:56px;right:12px;font-size:11px;color:var(--muted);opacity:.7;z-index:20}
 
   /* ---------- HUD ---------- */
   .hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:center;gap:8px;
@@ -226,6 +232,11 @@
       </div>
     </div>
 
+    <div class="optgroup" id="nameGroup">
+      <div class="lbl">なまえ（記録に表示）</div>
+      <div class="chips"><input id="nameInput" class="nameinput" maxlength="10" placeholder="ゲスト" autocomplete="off"></div>
+    </div>
+
     <button class="start" id="startBtn" disabled>スタート</button>
     <div class="homebtns">
       <button class="ghost" id="rankBtn">🏆 記録</button>
@@ -246,6 +257,7 @@
       <button class="iconbtn" id="quitBtn">✕</button>
       <div class="timebar" id="timebar"></div>
     </div>
+    <div class="esc-hint">Escキーでリスタート</div>
 
     <div id="stagearea" style="width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1">
       <div id="sushiStage"><div id="belt"><div id="mouth">😋</div></div></div>
@@ -269,6 +281,7 @@
     <h2 id="rTitle">リザルト</h2>
     <div class="rgrid" id="rGrid"></div>
     <div class="verdict" id="rVerdict"></div>
+    <div class="nameedit"><span>なまえ:</span><input id="rNameInput" class="nameinput" maxlength="10" placeholder="ゲスト" autocomplete="off"></div>
     <div class="ranktbl" id="rRank"></div>
     <div class="rbtns">
       <button class="again" id="againBtn">もう一度</button>
@@ -546,6 +559,7 @@ function applyMute(){
    ========================================================= */
 const $=s=>document.querySelector(s);
 let mode=null,courseKey='mid',theme='pop',category='lv2';
+let playerName=(localStorage.getItem('typing_name')||'').slice(0,10), lastEntry=null, lastKey=null;
 let running=false,endAt=0,totalTime=0;
 let money=0,cleared=0,correctKeys=0,missKeys=0,combo=0,maxCombo=0;
 let rafId=null,lastT=0;
@@ -597,6 +611,7 @@ $('#ovClose').onclick=()=>$('#overlay').classList.remove('on');
    5) ゲーム開始／ループ／終了
    ========================================================= */
 function startGame(){
+  running=false; if(rafId) cancelAnimationFrame(rafId); stopBgm();
   money=0;cleared=0;correctKeys=0;missKeys=0;combo=0;maxCombo=0;
   show('game');
   const g=$('#game'); g.className='screen active'+(mode==='pop'?' pop theme-'+theme:'');
@@ -645,6 +660,13 @@ function inputChar(c){
 document.addEventListener('keydown',e=>{
   if(e.key==='Enter'){
     if($('#home').classList.contains('active')&&!$('#startBtn').disabled){ initAudio();resumeAudio();startGame(); }
+    return;
+  }
+  if(e.key==='Escape'){
+    // ゲーム中／リザルトで Esc → 同じ設定でリスタート
+    if($('#game').classList.contains('active')||$('#result').classList.contains('active')){
+      e.preventDefault(); initAudio(); resumeAudio(); startGame();
+    }
     return;
   }
   if(!running) return;
@@ -843,8 +865,10 @@ function dateStr(){ const d=new Date(); const p=n=>('0'+n).slice(-2); return (d.
    ========================================================= */
 function showResult(){
   const tot=correctKeys+missKeys, acc=tot?Math.round(correctKeys/tot*100):100;
-  const entry={score:money,acc,date:dateStr(),label:scoreLabel()};
+  const entry={id:(Date.now()+'-'+Math.floor(Math.random()*1e6)), name:(playerName||'ゲスト'), score:money,acc,date:dateStr(),label:scoreLabel()};
   const top=saveScore(entry);
+  lastEntry=entry; lastKey=scoreKey();
+  $('#rNameInput').value=playerName;
   const grid=$('#rGrid'); let html='';
   if(mode==='sushi'){
     const pay=COURSES[courseKey].pay;
@@ -861,14 +885,16 @@ function showResult(){
     const v=$('#rVerdict'); v.className='verdict win';
     v.textContent=money>=2500?'🔥 タイピングマスター！':money>=1200?'👍 いい調子！':'💪 練習あるのみ！';
   }
-  // ランキング表示（今回の記録をハイライト）
+  renderRank(top);
+  show('result');
+}
+function renderRank(arr){
   let rk='<div style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:6px">🏆 このカテゴリのベスト5</div>';
-  top.forEach((e,i)=>{
-    const me=(e.score===entry.score&&e.date===entry.date)?' me':'';
-    rk+='<div class="rk'+me+'"><span>'+(i+1)+'位　'+e.score+(mode==='sushi'?'円':'点')+'</span><span class="n">正確率'+e.acc+'% ・'+e.date+'</span></div>';
+  arr.forEach((e,i)=>{
+    const me=(lastEntry&&e.id===lastEntry.id)?' me':'';
+    rk+='<div class="rk'+me+'"><span>'+(i+1)+'位　'+esc(e.name||'ゲスト')+'　'+e.score+(mode==='sushi'?'円':'点')+'</span><span class="n">正確率'+e.acc+'% ・'+e.date+'</span></div>';
   });
   $('#rRank').innerHTML=rk;
-  show('result');
 }
 function row(l,v){ return '<div class="l">'+l+'</div><div class="v">'+v+'</div>'; }
 
@@ -879,12 +905,23 @@ function showRanking(){
     const k=localStorage.key(i); if(!k.startsWith('typing_hs_')) continue;
     const arr=loadScores(k.slice('typing_hs_'.length)); if(!arr.length) continue; any=true;
     const best=arr[0];
-    html+='<div class="ovrow"><span>'+esc(best.label||k)+'</span><b>'+best.score+' / 正確率'+best.acc+'%</b></div>';
+    html+='<div class="ovrow"><span>'+esc(best.label||k)+'</span><b>'+esc(best.name||'ゲスト')+'　'+best.score+' / 正確率'+best.acc+'%</b></div>';
   }
   list.innerHTML=any?html:'<div style="text-align:center;color:var(--muted)">まだ記録がありません。プレイすると保存されます。</div>';
   $('#overlay').classList.add('on');
 }
 
+/* なまえ入力（記録用） */
+function setName(v){ playerName=(v||'').slice(0,10); localStorage.setItem('typing_name',playerName); }
+$('#nameInput').value=playerName;
+$('#nameInput').addEventListener('input',e=>{ setName(e.target.value); $('#rNameInput').value=playerName; });
+$('#rNameInput').addEventListener('input',e=>{
+  setName(e.target.value); $('#nameInput').value=playerName;
+  if(lastEntry&&lastKey){
+    const arr=loadScores(lastKey); const t=arr.find(x=>x.id===lastEntry.id);
+    if(t){ t.name=playerName||'ゲスト'; lastEntry.name=t.name; localStorage.setItem('typing_hs_'+lastKey,JSON.stringify(arr)); renderRank(arr); }
+  }
+});
 /* 初期化 */
 applyMute();
 </script>
