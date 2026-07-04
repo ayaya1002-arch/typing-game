@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>寿司打＆pop タイピング</title>
+<style>
+  :root{
+    --bg:#0b0e22; --bg2:#161b3d; --ink:#eef2ff; --muted:#98a2c7;
+    --accent:#ffd34d; --good:#5cffb1; --bad:#ff6b7a; --belt:#3a2a1c; --belt2:#5a4230;
+    --pop1:#ff5db1; --pop2:#7c5cff; --pop3:#5ce0ff;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+    color:var(--ink); overflow:hidden; user-select:none; -webkit-user-select:none;
+    background:#0b0e22;
+  }
+  #bgfx{position:fixed;inset:0;z-index:-2;
+    background:
+      radial-gradient(900px 500px at 15% -10%,#3a2c6e55,transparent),
+      radial-gradient(900px 500px at 90% 110%,#1c5a6e55,transparent),
+      linear-gradient(180deg,#12163a,#0b0e22);
+    animation:bgshift 14s ease-in-out infinite alternate}
+  @keyframes bgshift{to{filter:hue-rotate(40deg)}}
+  #app{height:100%;display:flex;flex-direction:column;position:relative}
+  .screen{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;padding:16px;overflow-y:auto}
+  .screen.active{display:flex}
+
+  /* ---------- HOME ---------- */
+  h1{font-size:clamp(24px,5vw,50px);margin:0 0 4px;letter-spacing:1px;text-align:center;text-shadow:0 3px 18px #7c5cff66}
+  h1 .em{color:var(--accent)}
+  .sub{color:var(--muted);margin-bottom:16px;text-align:center;font-size:13px}
+  .modes{display:flex;gap:16px;flex-wrap:wrap;justify-content:center}
+  .card{width:200px;height:150px;border-radius:18px;cursor:pointer;
+    background:linear-gradient(160deg,var(--bg2),#12163a);
+    border:2px solid transparent;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:8px;transition:.15s}
+  .card:hover{transform:translateY(-4px)}
+  .card.sel{border-color:var(--accent);box-shadow:0 0 0 4px rgba(255,211,77,.15),0 0 26px #ffd34d55}
+  .card .ico{font-size:48px}
+  .card .name{font-size:20px;font-weight:800}
+  .card .desc{font-size:11px;color:var(--muted);text-align:center;padding:0 12px}
+
+  .optgroup{margin-top:16px;width:100%;max-width:640px}
+  .optgroup .lbl{font-size:12px;color:var(--muted);margin:0 0 6px 4px}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .chip{padding:8px 14px;border-radius:999px;cursor:pointer;font-size:13px;
+    background:#20264f;border:2px solid transparent;transition:.12s;white-space:nowrap}
+  .chip:hover{background:#2a3160}
+  .chip.sel{border-color:var(--good);color:var(--good);box-shadow:0 0 14px #5cffb144}
+  .hidden{display:none!important}
+
+  .start{margin-top:20px;padding:14px 46px;font-size:20px;font-weight:800;border:none;
+    border-radius:999px;cursor:pointer;color:#1a1030;
+    background:linear-gradient(90deg,var(--accent),#ffb020);
+    box-shadow:0 8px 24px rgba(255,176,32,.35);transition:.15s}
+  .start:disabled{opacity:.4;cursor:not-allowed;box-shadow:none}
+  .start:not(:disabled):hover{transform:translateY(-2px)}
+  .homebtns{display:flex;gap:12px;margin-top:12px}
+  .ghost{background:#232a55;color:var(--ink);border:none;border-radius:999px;padding:10px 20px;font-size:14px;cursor:pointer}
+  .hint-key{margin-top:12px;color:var(--muted);font-size:11px;text-align:center}
+
+  /* ---------- HUD ---------- */
+  .hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:center;gap:8px;
+    align-items:center;padding:12px;font-size:13px;z-index:20;flex-wrap:wrap}
+  .hud .stat{background:rgba(255,255,255,.06);padding:6px 14px;border-radius:12px;min-width:82px;text-align:center}
+  .hud .stat b{display:block;font-size:20px;color:var(--accent)}
+  .hud .iconbtn{background:rgba(255,255,255,.08);border:none;color:var(--ink);width:40px;height:40px;
+    border-radius:12px;font-size:18px;cursor:pointer}
+  .timebar{position:absolute;left:0;bottom:0;height:4px;background:linear-gradient(90deg,var(--good),var(--accent));width:100%;transition:width .1s linear;box-shadow:0 0 10px var(--good)}
+
+  /* ---------- SUSHI ---------- */
+  #sushiStage{width:100%;max-width:1000px;display:none;flex-direction:column;align-items:center}
+  #sushiStage.on{display:flex}
+  #belt{position:relative;width:100%;height:150px;margin-top:8px;overflow:hidden;
+    background:repeating-linear-gradient(90deg,var(--belt) 0 38px,var(--belt2) 38px 76px);
+    border-top:4px solid #6b4d34;border-bottom:4px solid #241a10;border-radius:8px}
+  #mouth{position:absolute;left:-4px;top:50%;transform:translateY(-50%);font-size:58px;z-index:5;filter:drop-shadow(0 4px 6px #000)}
+  .plate{position:absolute;top:20px;left:0;width:120px;text-align:center;will-change:transform}
+  .plate .dish{width:120px;height:66px;border-radius:50%;
+    background:radial-gradient(circle at 50% 35%,#fff,#c9d2e6 70%,#98a2bf);
+    box-shadow:0 8px 10px rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:32px}
+  .plate .k{margin-top:4px;font-size:14px;font-weight:800;color:#fff;text-shadow:0 2px 3px #000;line-height:1.1}
+  .plate.active .dish{outline:4px solid var(--accent);box-shadow:0 0 26px var(--accent)}
+  .plate.eaten{animation:eat .32s ease forwards}
+  @keyframes eat{to{transform:translateY(-46px) scale(.15) rotate(20deg);opacity:0}}
+
+  /* ---------- POP ---------- */
+  #popStage{display:none}
+
+  /* ---------- TYPEBOX ---------- */
+  #typewrap{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  #sushiStage.on ~ #typewrap{margin-top:22px}
+  #game.pop #typewrap{margin-top:0}
+  #typebox{text-align:center;min-height:120px;position:relative;z-index:6}
+  #reading{font-size:clamp(15px,2.4vw,20px);color:var(--muted);letter-spacing:2px;min-height:24px}
+  #bigword{font-size:clamp(34px,7vw,66px);font-weight:900;letter-spacing:3px;line-height:1.15}
+  #game.pop #bigword{font-size:clamp(40px,9vw,84px)}
+  #romaji{font-size:clamp(19px,3.4vw,30px);letter-spacing:2px;margin-top:8px;font-family:"SF Mono",Menlo,monospace}
+  #romaji .done{color:var(--good)}
+  #romaji .rest{color:var(--muted)}
+  #typebox.miss{animation:shake .22s}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-10px)}60%{transform:translateX(10px)}}
+  #combo{margin-top:8px;font-size:22px;font-weight:900;height:30px;color:var(--pop1);text-shadow:0 0 14px var(--pop1)}
+  #combo.big{animation:comboPop .3s ease}
+  @keyframes comboPop{0%{transform:scale(.5)}60%{transform:scale(1.35)}100%{transform:scale(1)}}
+
+  /* screen shake */
+  #game.shake #stagearea{animation:sshake .22s}
+  @keyframes sshake{0%,100%{transform:translate(0,0)}25%{transform:translate(-7px,4px)}50%{transform:translate(6px,-5px)}75%{transform:translate(-4px,-3px)}}
+  #game.hot #bgfx{filter:hue-rotate(180deg) saturate(1.5)}
+
+  /* ---------- FX LAYER ---------- */
+  #fxLayer{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:8}
+  .particle{position:absolute;border-radius:50%;animation:burst var(--life,.7s) ease-out forwards;box-shadow:0 0 8px currentColor}
+  @keyframes burst{to{transform:translate(var(--dx),var(--dy)) scale(.2) rotate(var(--rot,180deg));opacity:0}}
+  .float{position:absolute;font-weight:900;pointer-events:none;animation:floatup .9s ease-out forwards;font-size:24px;text-shadow:0 2px 8px #000}
+  @keyframes floatup{to{transform:translateY(-56px) scale(1.1);opacity:0}}
+  .fxtext{position:absolute;font-weight:900;font-size:44px;pointer-events:none;transform:translate(-50%,-50%);animation:fxtext .5s ease-out forwards;text-shadow:0 0 18px currentColor}
+  @keyframes fxtext{0%{transform:translate(-50%,-50%) scale(.4) rotate(-8deg);opacity:0}30%{opacity:1}100%{transform:translate(-50%,-50%) scale(1.5) rotate(6deg);opacity:0}}
+
+  /* word clone effects */
+  .wordclone{position:absolute;font-weight:900;transform:translate(-50%,-50%);pointer-events:none;white-space:nowrap}
+  .wordclone.gun{animation:gunshatter .5s ease-out forwards;color:#fff;filter:drop-shadow(0 0 10px #ffd34d)}
+  @keyframes gunshatter{0%{opacity:1}100%{transform:translate(-50%,-50%) scale(1.6);opacity:0;filter:blur(6px) drop-shadow(0 0 10px #ff6b7a)}}
+  .slicehalf{position:absolute;font-weight:900;white-space:nowrap;pointer-events:none}
+  .slicehalf.top{animation:slicetop .5s ease-out forwards}
+  .slicehalf.bot{animation:slicebot .5s ease-out forwards}
+  @keyframes slicetop{to{transform:translate(-14px,-26px) rotate(-6deg);opacity:0}}
+  @keyframes slicebot{to{transform:translate(14px,26px) rotate(6deg);opacity:0}}
+  .slashstreak{position:absolute;height:5px;width:0;background:linear-gradient(90deg,transparent,#fff,transparent);
+    box-shadow:0 0 20px #fff,0 0 40px #5ce0ff;transform-origin:left center;animation:slash .28s ease-out forwards;z-index:9}
+  @keyframes slash{0%{width:0;opacity:0}30%{opacity:1}100%{width:var(--len,320px);opacity:0}}
+  .muzzle{position:absolute;width:120px;height:120px;border-radius:50%;transform:translate(-50%,-50%) scale(0);
+    background:radial-gradient(circle,#fff,#ffd34d 40%,transparent 70%);animation:muz .22s ease-out forwards;z-index:9}
+  @keyframes muz{0%{transform:translate(-50%,-50%) scale(0);opacity:1}100%{transform:translate(-50%,-50%) scale(1.4);opacity:0}}
+  #crosshair{position:absolute;left:50%;top:50%;width:130px;height:130px;transform:translate(-50%,-50%);display:none;z-index:7;
+    animation:cross 1.6s ease-in-out infinite}
+  #game.pop.theme-gun #crosshair{display:block}
+  #crosshair::before,#crosshair::after{content:"";position:absolute;background:#ff6b7a88;box-shadow:0 0 8px #ff6b7a}
+  #crosshair::before{left:50%;top:0;width:2px;height:100%;transform:translateX(-50%)}
+  #crosshair::after{top:50%;left:0;height:2px;width:100%;transform:translateY(-50%)}
+  #crossring{position:absolute;inset:18px;border:2px solid #ff6b7a88;border-radius:50%;box-shadow:0 0 10px #ff6b7a}
+  @keyframes cross{50%{transform:translate(-50%,-50%) scale(1.12)}}
+
+  /* ---------- KEYBOARD ---------- */
+  #kbd{position:absolute;bottom:0;left:0;right:0;padding:6px 4px 10px;z-index:15;
+    background:linear-gradient(180deg,transparent,#0b0e22cc 30%);display:flex;flex-direction:column;gap:5px;align-items:center}
+  #kbd.off{display:none}
+  .krow{display:flex;gap:4px;justify-content:center;width:100%}
+  .key{flex:1 1 0;max-width:44px;height:42px;border-radius:8px;background:#232a55;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;
+    border:1px solid #3a4275;cursor:pointer;touch-action:manipulation;transition:.05s}
+  .key.lit{background:var(--accent);color:#1a1030;transform:translateY(2px);box-shadow:0 0 16px var(--accent)}
+  .key.wide{max-width:70px}
+
+  /* ---------- RESULT ---------- */
+  #result h2{font-size:30px;margin:0 0 12px;text-align:center}
+  .rgrid{display:grid;grid-template-columns:auto auto;gap:8px 34px;font-size:18px;margin-bottom:6px}
+  .rgrid .l{color:var(--muted)}
+  .rgrid .v{text-align:right;font-weight:800;color:var(--accent)}
+  .verdict{font-size:24px;font-weight:900;margin:14px 0;text-align:center}
+  .verdict.win{color:var(--good)} .verdict.lose{color:var(--bad)}
+  .ranktbl{width:100%;max-width:360px;margin:6px 0 4px;font-size:14px}
+  .ranktbl .rk{display:flex;justify-content:space-between;padding:6px 12px;border-radius:8px}
+  .ranktbl .rk.me{background:#ffd34d22;color:var(--accent);font-weight:800}
+  .ranktbl .rk .n{color:var(--muted)}
+  .rbtns{display:flex;gap:12px;margin-top:12px}
+  .rbtns button{padding:11px 26px;font-size:15px;border-radius:999px;border:none;cursor:pointer;font-weight:800}
+  .rbtns .again{background:linear-gradient(90deg,var(--accent),#ffb020);color:#1a1030}
+  .rbtns .home{background:#2a3160;color:var(--ink)}
+
+  /* ---------- OVERLAY ---------- */
+  #overlay{position:absolute;inset:0;background:#000a;z-index:40;display:none;align-items:center;justify-content:center;padding:20px}
+  #overlay.on{display:flex}
+  .ovbox{background:var(--bg2);border-radius:18px;padding:22px;max-width:440px;width:100%;max-height:80%;overflow:auto}
+  .ovbox h3{margin:0 0 14px;text-align:center}
+  .ovrow{display:flex;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #ffffff14;font-size:14px}
+  .ovrow b{color:var(--accent)}
+  .ovbox .cl{margin-top:16px;width:100%;padding:10px;border:none;border-radius:10px;background:#2a3160;color:var(--ink);cursor:pointer}
+</style>
+</head>
+<body>
+<div id="bgfx"></div>
+<div id="app">
+
+  <!-- HOME -->
+  <section id="home" class="screen active">
+    <h1>🍣 <span class="em">寿司打</span> ＆ <span class="em">pop</span> タイピング</h1>
+    <p class="sub">ローマ字で日本語を打つタイピングゲーム</p>
+    <div class="modes">
+      <div class="card" data-mode="sushi">
+        <div class="ico">🍣</div><div class="name">寿司打モード</div>
+        <div class="desc">流れるお題を打って食べる。元を取れるか勝負！</div>
+      </div>
+      <div class="card" data-mode="pop">
+        <div class="ico">💥</div><div class="name">popモード</div>
+        <div class="desc">次々ポップするお題を弾く。コンボでハイスコア！</div>
+      </div>
+    </div>
+
+    <div class="optgroup" id="lvGroup">
+      <div class="lbl">難易度（自動生成・数十万通り／重複しにくい）</div>
+      <div class="chips" id="lvChips"></div>
+    </div>
+    <div class="optgroup" id="catGroup">
+      <div class="lbl">テーマ別（決まった語）</div>
+      <div class="chips" id="catChips"></div>
+    </div>
+    <div class="optgroup hidden" id="courseGroup">
+      <div class="lbl">コース（寿司打）</div>
+      <div class="chips" id="courseChips">
+        <div class="chip" data-course="easy">お手軽（45秒/ゆっくり）</div>
+        <div class="chip sel" data-course="mid">お勧め（60秒/ふつう）</div>
+        <div class="chip" data-course="hard">高級（60秒/はやい）</div>
+      </div>
+    </div>
+    <div class="optgroup hidden" id="themeGroup">
+      <div class="lbl">見た目テーマ（pop）</div>
+      <div class="chips" id="themeChips">
+        <div class="chip sel" data-theme="pop">💥 ポップ</div>
+        <div class="chip" data-theme="gun">🔫 ガン</div>
+        <div class="chip" data-theme="sword">⚔️ 刀</div>
+      </div>
+    </div>
+
+    <button class="start" id="startBtn" disabled>スタート</button>
+    <div class="homebtns">
+      <button class="ghost" id="rankBtn">🏆 記録</button>
+      <button class="ghost" id="sndBtn2">🔊 サウンド: ON</button>
+    </div>
+    <div class="hint-key">ローマ字入力（例: 寿司→sushi） / スマホは画面キーボードでタップ</div>
+    <div class="hint-key" style="opacity:.6">学年別漢字の読みデータ: KANJIDIC2 © EDRDG（CC BY-SA 4.0）</div>
+  </section>
+
+  <!-- GAME -->
+  <section id="game" class="screen">
+    <div class="hud">
+      <div class="stat">残り<b id="hTime">0</b></div>
+      <div class="stat" id="hMoneyBox">スコア<b id="hMoney">0</b></div>
+      <div class="stat">正確率<b id="hAcc">100%</b></div>
+      <button class="iconbtn" id="sndBtn">🔊</button>
+      <button class="iconbtn" id="kbdBtn">⌨️</button>
+      <button class="iconbtn" id="quitBtn">✕</button>
+      <div class="timebar" id="timebar"></div>
+    </div>
+
+    <div id="stagearea" style="width:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1">
+      <div id="sushiStage"><div id="belt"><div id="mouth">😋</div></div></div>
+      <div id="popStage"></div>
+      <div id="typewrap">
+        <div id="typebox">
+          <div id="reading"></div>
+          <div id="bigword"></div>
+          <div id="romaji"><span class="done"></span><span class="rest"></span></div>
+          <div id="combo"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="fxLayer"><div id="crosshair"><div id="crossring"></div></div></div>
+    <div id="kbd"></div>
+  </section>
+
+  <!-- RESULT -->
+  <section id="result" class="screen">
+    <h2 id="rTitle">リザルト</h2>
+    <div class="rgrid" id="rGrid"></div>
+    <div class="verdict" id="rVerdict"></div>
+    <div class="ranktbl" id="rRank"></div>
+    <div class="rbtns">
+      <button class="again" id="againBtn">もう一度</button>
+      <button class="home" id="homeBtn">モード選択へ</button>
+    </div>
+  </section>
+
+  <!-- RANKING OVERLAY -->
+  <div id="overlay"><div class="ovbox">
+    <h3>🏆 ハイスコア記録</h3>
+    <div id="ovList"></div>
+    <button class="cl" id="ovClose">閉じる</button>
+  </div></div>
+
+</div>
+
+<script src="wordgen.js"></script>
+<script src="kanji-grades.js"></script>
+<script>
+/* =========================================================
+   1) ローマ字入力エンジン（複数入力パターン対応・検証済み）
+   ========================================================= */
+const KATA2HIRA=s=>s.replace(/[ァ-ヶ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0x60));
+const ROMA={
+  'あ':['a'],'い':['i'],'う':['u'],'え':['e'],'お':['o'],
+  'か':['ka'],'き':['ki'],'く':['ku'],'け':['ke'],'こ':['ko'],
+  'さ':['sa'],'し':['shi','si'],'す':['su'],'せ':['se'],'そ':['so'],
+  'た':['ta'],'ち':['chi','ti'],'つ':['tsu','tu'],'て':['te'],'と':['to'],
+  'な':['na'],'に':['ni'],'ぬ':['nu'],'ね':['ne'],'の':['no'],
+  'は':['ha'],'ひ':['hi'],'ふ':['fu','hu'],'へ':['he'],'ほ':['ho'],
+  'ま':['ma'],'み':['mi'],'む':['mu'],'め':['me'],'も':['mo'],
+  'や':['ya'],'ゆ':['yu'],'よ':['yo'],
+  'ら':['ra'],'り':['ri'],'る':['ru'],'れ':['re'],'ろ':['ro'],
+  'わ':['wa'],'を':['wo'],'ん':['nn'],
+  'が':['ga'],'ぎ':['gi'],'ぐ':['gu'],'げ':['ge'],'ご':['go'],
+  'ざ':['za'],'じ':['ji','zi'],'ず':['zu'],'ぜ':['ze'],'ぞ':['zo'],
+  'だ':['da'],'ぢ':['di'],'づ':['du','zu'],'で':['de'],'ど':['do'],
+  'ば':['ba'],'び':['bi'],'ぶ':['bu'],'べ':['be'],'ぼ':['bo'],
+  'ぱ':['pa'],'ぴ':['pi'],'ぷ':['pu'],'ぺ':['pe'],'ぽ':['po'],
+  'きゃ':['kya'],'きゅ':['kyu'],'きょ':['kyo'],
+  'しゃ':['sha','sya'],'しゅ':['shu','syu'],'しょ':['sho','syo'],
+  'ちゃ':['cha','tya','cya'],'ちゅ':['chu','tyu'],'ちょ':['cho','tyo'],
+  'にゃ':['nya'],'にゅ':['nyu'],'にょ':['nyo'],
+  'ひゃ':['hya'],'ひゅ':['hyu'],'ひょ':['hyo'],
+  'みゃ':['mya'],'みゅ':['myu'],'みょ':['myo'],
+  'りゃ':['rya'],'りゅ':['ryu'],'りょ':['ryo'],
+  'ぎゃ':['gya'],'ぎゅ':['gyu'],'ぎょ':['gyo'],
+  'じゃ':['ja','jya','zya'],'じゅ':['ju','jyu','zyu'],'じょ':['jo','jyo','zyo'],
+  'びゃ':['bya'],'びゅ':['byu'],'びょ':['byo'],
+  'ぴゃ':['pya'],'ぴゅ':['pyu'],'ぴょ':['pyo'],
+  'ふぁ':['fa'],'ふぃ':['fi'],'ふぇ':['fe'],'ふぉ':['fo'],
+  'てぃ':['thi'],'でぃ':['dhi'],'ゔ':['vu'],
+  'ぁ':['xa','la'],'ぃ':['xi','li'],'ぅ':['xu','lu'],'ぇ':['xe','le'],'ぉ':['xo','lo'],
+  'ゃ':['xya','lya'],'ゅ':['xyu','lyu'],'ょ':['xyo','lyo'],'っ':['xtu','ltu','xtsu'],
+  'ー':['-'],
+};
+function segment(kana){
+  const out=[]; let i=0;
+  while(i<kana.length){
+    const two=kana.substr(i,2);
+    if(ROMA[two]){ out.push(two); i+=2; }
+    else { out.push(kana[i]); i++; }
+  }
+  return out;
+}
+function options(chunks,i){
+  const ch=chunks[i];
+  if(ch==='ん'){
+    const set=new Set(['nn','xn',"n'"]);
+    const nx=chunks[i+1];
+    if(nx){
+      const no=options(chunks,i+1);
+      if(no.every(o=>o[0]&&!'aiueo'.includes(o[0])&&o[0]!=='n'&&o[0]!=='y')) set.add('n');
+    }
+    return [...set];
+  }
+  if(ch==='っ'){
+    const set=new Set(['xtu','ltu','xtsu']);
+    const nx=chunks[i+1];
+    if(nx) options(chunks,i+1).forEach(o=>{const c=o[0];if(c&&/[a-z]/.test(c)&&!'aiueonxl-'.includes(c))set.add(c);});
+    return [...set];
+  }
+  return ROMA[ch]||[ch];
+}
+let units=[],cursors=[];
+function setWord(kana){
+  kana=KATA2HIRA(kana);
+  const chunks=segment(kana);
+  units=chunks.map((_,i)=>options(chunks,i));
+  cursors=[{u:0,p:''}];
+}
+function pressKey(c){
+  const next=[];const seen=new Set();
+  const add=(u,p)=>{const k=u+'|'+p;if(!seen.has(k)){seen.add(k);next.push({u,p});}};
+  for(const cur of cursors){
+    if(cur.u>=units.length) continue;
+    for(const o of units[cur.u]){
+      const np=cur.p+c;
+      if(o===np) add(cur.u+1,'');
+      else if(o.startsWith(np)) add(cur.u,np);
+    }
+  }
+  if(next.length===0) return 'miss';
+  cursors=next;
+  if(cursors.some(cur=>cur.u>=units.length)) return 'done';
+  return 'hit';
+}
+function hintParts(){
+  let best=cursors[0];
+  for(const c of cursors){if(c.u>best.u||(c.u===best.u&&c.p.length>best.p.length))best=c;}
+  let done='';for(let i=0;i<best.u;i++)done+=units[i][0];done+=best.p;
+  let rest='';
+  if(best.u<units.length){
+    const opts=units[best.u].filter(o=>o.startsWith(best.p)).sort((a,b)=>a.length-b.length);
+    const o=opts[0]||units[best.u][0];rest+=o.slice(best.p.length);
+    for(let i=best.u+1;i<units.length;i++)rest+=units[i][0];
+  }
+  return {done,rest};
+}
+
+/* =========================================================
+   2) カテゴリ／単語データ  W([表示, よみ(ひらがな), 値段?])
+   ========================================================= */
+const W=list=>list.map(a=>({d:a[0],k:a[1],p:a[2]}));
+const CATS={
+  sushi:{label:'🍣 寿司ネタ',words:W([
+    ['たまご','たまご',100],['いか','いか',100],['たこ','たこ',120],['あじ','あじ',130],
+    ['えび','えび',150],['さば','さば',150],['まぐろ','まぐろ',200],['たい','たい',200],
+    ['サーモン','さーもん',200],['ぶり','ぶり',250],['はまち','はまち',250],['ほたて','ほたて',280],
+    ['いくら','いくら',300],['あなご','あなご',300],['こはだ','こはだ',200],['かんぱち','かんぱち',300],
+    ['ひらめ','ひらめ',320],['うに','うに',500],['あわび','あわび',600],['大とろ','おおとろ',500],
+    ['中とろ','ちゅうとろ',400],['ねぎとろ','ねぎとろ',250],['しゃこ','しゃこ',220],['かっぱ巻き','かっぱまき',120],
+    ['鉄火巻き','てっかまき',160],['数の子','かずのこ',300],['しめさば','しめさば',240],['玉子焼き','たまごやき',150],
+  ])},
+  easy:{label:'🌱 やさしい言葉',words:W([
+    ['ねこ','ねこ'],['いぬ','いぬ'],['そら','そら'],['うみ','うみ'],['やま','やま'],['かわ','かわ'],
+    ['ほし','ほし'],['つき','つき'],['はなび','はなび'],['ともだち','ともだち'],['たのしい','たのしい'],
+    ['ありがとう','ありがとう'],['こんにちは','こんにちは'],['がんばって','がんばって'],['さくらんぼ','さくらんぼ'],
+    ['えんぴつ','えんぴつ'],['あさごはん','あさごはん'],['おはよう','おはよう'],['さようなら','さようなら'],['おいしい','おいしい'],
+  ])},
+  kanji1:{label:'✏️ 漢字1年生',words:W([
+    ['山','やま'],['川','かわ'],['空','そら'],['花','はな'],['犬','いぬ'],['森','もり'],['石','いし'],
+    ['音','おと'],['学校','がっこう'],['先生','せんせい'],['花火','はなび'],['三日月','みかづき'],
+    ['水','みず'],['火','ひ'],['青空','あおぞら'],['雨','あめ'],
+  ])},
+  kanji2:{label:'✏️ 漢字2年生',words:W([
+    ['電車','でんしゃ'],['教室','きょうしつ'],['音楽','おんがく'],['公園','こうえん'],['汽車','きしゃ'],
+    ['天気','てんき'],['毎日','まいにち'],['時間','じかん'],['元気','げんき'],['兄弟','きょうだい'],
+    ['姉妹','しまい'],['会社','かいしゃ'],['算数','さんすう'],['国語','こくご'],['野原','のはら'],['親友','しんゆう'],
+  ])},
+  kanji3:{label:'✏️ 漢字3年生',words:W([
+    ['病院','びょういん'],['図書館','としょかん'],['世界','せかい'],['勉強','べんきょう'],['銀行','ぎんこう'],
+    ['練習','れんしゅう'],['相談','そうだん'],['感想','かんそう'],['意味','いみ'],['委員会','いいんかい'],
+    ['農業','のうぎょう'],['商店','しょうてん'],['温度','おんど'],['屋根','やね'],['列車','れっしゃ'],['宿題','しゅくだい'],
+  ])},
+  kanji4:{label:'✏️ 漢字4年生',words:W([
+    ['卒業','そつぎょう'],['成功','せいこう'],['努力','どりょく'],['観察','かんさつ'],['実験','じっけん'],
+    ['完成','かんせい'],['特別','とくべつ'],['必要','ひつよう'],['参加','さんか'],['位置','いち'],
+    ['結果','けっか'],['管理','かんり'],['季節','きせつ'],['連続','れんぞく'],['積極的','せっきょくてき'],['機械','きかい'],
+  ])},
+  kanji5:{label:'✏️ 漢字5年生',words:W([
+    ['政治','せいじ'],['経済','けいざい'],['貿易','ぼうえき'],['責任','せきにん'],['判断','はんだん'],
+    ['統計','とうけい'],['資源','しげん'],['効率','こうりつ'],['情報','じょうほう'],['保険','ほけん'],
+    ['個性','こせい'],['快適','かいてき'],['基準','きじゅん'],['講師','こうし'],['財産','ざいさん'],['提案','ていあん'],
+  ])},
+  kanji6:{label:'✏️ 漢字6年生',words:W([
+    ['憲法','けんぽう'],['内閣','ないかく'],['秘密','ひみつ'],['尊敬','そんけい'],['誕生','たんじょう'],
+    ['認識','にんしき'],['批判','ひはん'],['討論','とうろん'],['遺産','いさん'],['純粋','じゅんすい'],
+    ['系統','けいとう'],['供給','きょうきゅう'],['展覧会','てんらんかい'],['沿岸','えんがん'],['善処','ぜんしょ'],['幕府','ばくふ'],
+  ])},
+  business:{label:'💼 ビジネス定型文',words:W([
+    ['お世話になっております','おせわになっております'],['よろしくお願いします','よろしくおねがいします'],
+    ['承知いたしました','しょうちいたしました'],['恐れ入ります','おそれいります'],['お疲れ様です','おつかれさまです'],
+    ['ご確認ください','ごかくにんください'],['申し訳ございません','もうしわけございません'],['検討いたします','けんとういたします'],
+    ['ご連絡ください','ごれんらくください'],['打ち合わせ','うちあわせ'],['議事録','ぎじろく'],['名刺交換','めいしこうかん'],
+    ['見積書','みつもりしょ'],['領収書','りょうしゅうしょ'],['お手数ですが','おてすうですが'],['引き続き','ひきつづき'],
+  ])},
+  history:{label:'📜 歴史の人物',words:W([
+    ['織田信長','おだのぶなが'],['徳川家康','とくがわいえやす'],['豊臣秀吉','とよとみひでよし'],['坂本龍馬','さかもとりょうま'],
+    ['聖徳太子','しょうとくたいし'],['紫式部','むらさきしきぶ'],['卑弥呼','ひみこ'],['源頼朝','みなもとのよりとも'],
+    ['平清盛','たいらのきよもり'],['西郷隆盛','さいごうたかもり'],['福沢諭吉','ふくざわゆきち'],['野口英世','のぐちひでよ'],
+    ['夏目漱石','なつめそうせき'],['伊藤博文','いとうひろぶみ'],['武田信玄','たけだしんげん'],['上杉謙信','うえすぎけんしん'],
+    ['北条政子','ほうじょうまさこ'],['徳川吉宗','とくがわよしむね'],
+  ])},
+  katakana:{label:'🔤 カタカナ語',words:W([
+    ['サーモン','さーもん'],['テレビ','てれび'],['パソコン','ぱそこん'],['コーヒー','こーひー'],['チョコレート','ちょこれーと'],
+    ['ハンバーガー','はんばーがー'],['ラーメン','らーめん'],['カレー','かれー'],['ケーキ','けーき'],['ジュース','じゅーす'],
+    ['サッカー','さっかー'],['テニス','てにす'],['ピアノ','ぴあの'],['ギター','ぎたー'],['カメラ','かめら'],
+    ['ロボット','ろぼっと'],['ペンギン','ぺんぎん'],['ライオン','らいおん'],['ゲーム','げーむ'],['スマホ','すまほ'],
+  ])},
+};
+// 学年別漢字（教育漢字1026字・kanjidic2/EDRDG由来）を反映
+if(window.KANJI_GRADES){
+  for(let g=1;g<=6;g++){
+    if(CATS['kanji'+g] && KANJI_GRADES[g]){
+      CATS['kanji'+g].words=KANJI_GRADES[g].map(a=>({d:a[0],k:a[1]}));
+      CATS['kanji'+g].label='✏️ 漢字'+g+'年('+KANJI_GRADES[g].length+'字)';
+    }
+  }
+}
+const COURSES={
+  easy:{label:'お手軽コース',time:45,speed:70,pay:1000},
+  mid :{label:'お勧めコース',time:60,speed:95,pay:2000},
+  hard:{label:'高級コース',  time:60,speed:130,pay:3000},
+};
+
+/* =========================================================
+   3) サウンド（WebAudioで合成・外部ファイル不要）
+   ========================================================= */
+let ac=null,master=null,sfxGain=null,bgmGain=null,noiseBuf=null,bgmTimer=null,bgmStep=0;
+let muted=(localStorage.getItem('typing_muted')==='1');
+function initAudio(){
+  if(ac) return;
+  try{ ac=new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ return; }
+  master=ac.createGain(); master.gain.value=muted?0:0.9; master.connect(ac.destination);
+  sfxGain=ac.createGain(); sfxGain.gain.value=1; sfxGain.connect(master);
+  bgmGain=ac.createGain(); bgmGain.gain.value=0.22; bgmGain.connect(master);
+  const len=ac.sampleRate*0.4; noiseBuf=ac.createBuffer(1,len,ac.sampleRate);
+  const d=noiseBuf.getChannelData(0); for(let i=0;i<len;i++) d[i]=Math.random()*2-1;
+}
+function resumeAudio(){ if(ac&&ac.state==='suspended') ac.resume(); }
+function beep(freq,dur,type,vol,sweepTo,dest){
+  if(!ac) return; const t=ac.currentTime;
+  const o=ac.createOscillator(),g=ac.createGain();
+  o.type=type||'sine'; o.frequency.setValueAtTime(freq,t);
+  if(sweepTo) o.frequency.exponentialRampToValueAtTime(sweepTo,t+dur);
+  g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(dest||sfxGain); o.start(t); o.stop(t+dur+0.02);
+}
+function noise(dur,vol,filterType,freq){
+  if(!ac) return; const t=ac.currentTime;
+  const s=ac.createBufferSource(); s.buffer=noiseBuf;
+  const g=ac.createGain(); g.gain.setValueAtTime(vol,t); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  let node=s;
+  if(filterType){ const f=ac.createBiquadFilter(); f.type=filterType; f.frequency.setValueAtTime(freq,t);
+    if(filterType==='bandpass'){ f.Q.value=2; f.frequency.exponentialRampToValueAtTime(freq*4,t+dur);}
+    s.connect(f); node=f; }
+  node.connect(g).connect(sfxGain); s.start(t); s.stop(t+dur);
+}
+function sfx(name){
+  if(!ac||muted) return;
+  switch(name){
+    case 'type': beep(1200+Math.random()*200,0.03,'square',0.05); break;
+    case 'eat':  beep(520,0.12,'sine',0.18,900); beep(300,0.1,'triangle',0.08); break;
+    case 'pop':  noise(0.12,0.22,'highpass',600); beep(700,0.14,'triangle',0.14,1400); break;
+    case 'miss': beep(220,0.14,'sawtooth',0.12,110); break;
+    case 'gun':  noise(0.07,0.4,'lowpass',1800); beep(120,0.14,'sine',0.3,60); beep(1600,0.04,'square',0.1); break;
+    case 'sword':noise(0.2,0.28,'bandpass',900); beep(2000,0.16,'sine',0.12,400); break;
+    case 'combo':beep(880,0.1,'square',0.08,1320); break;
+  }
+}
+function startBgm(){
+  if(!ac) return; stopBgm();
+  const scale=[261.63,293.66,329.63,392.0,440.0,523.25,587.33];
+  bgmStep=0;
+  bgmTimer=setInterval(()=>{
+    if(!ac||muted) return;
+    const f=scale[bgmStep%scale.length];
+    beep(f,0.16,'triangle',0.14,null,bgmGain);
+    if(bgmStep%4===0) beep(f/2,0.42,'sine',0.16,null,bgmGain);
+    bgmStep++;
+  },210);
+}
+function stopBgm(){ if(bgmTimer){ clearInterval(bgmTimer); bgmTimer=null; } }
+function applyMute(){
+  if(master) master.gain.value=muted?0:0.9;
+  localStorage.setItem('typing_muted',muted?'1':'0');
+  const ic=muted?'🔇':'🔊';
+  $('#sndBtn').textContent=ic;
+  $('#sndBtn2').textContent='🔊 サウンド: '+(muted?'OFF':'ON');
+}
+
+/* =========================================================
+   4) 共通状態＆画面遷移
+   ========================================================= */
+const $=s=>document.querySelector(s);
+let mode=null,courseKey='mid',theme='pop',category='lv2';
+let running=false,endAt=0,totalTime=0;
+let money=0,cleared=0,correctKeys=0,missKeys=0,combo=0,maxCombo=0;
+let rafId=null,lastT=0;
+function show(id){ document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active')); $('#'+id).classList.add('active'); }
+
+/* カテゴリ／難易度チップ生成（難易度=自動生成 / テーマ=固定語） */
+function selectCat(key){ category=key; document.querySelectorAll('.catchip').forEach(x=>x.classList.toggle('sel',x.dataset.cat===key)); }
+function mkChip(key,label){
+  const c=document.createElement('div');
+  c.className='chip catchip'+(key===category?' sel':''); c.dataset.cat=key; c.textContent=label;
+  c.onclick=()=>selectCat(key); return c;
+}
+(function(){
+  const lv=$('#lvChips');
+  if(window.WordGen) Object.keys(WordGen.levels).forEach(k=>lv.appendChild(mkChip(k,WordGen.levels[k].label)));
+  const box=$('#catChips');
+  Object.keys(CATS).forEach(k=>box.appendChild(mkChip(k,CATS[k].label)));
+})();
+function catLabel(){ return (window.WordGen&&WordGen.levels[category])?WordGen.levels[category].label:(CATS[category]?CATS[category].label:category); }
+function pickWord(){
+  if(window.WordGen&&WordGen.levels[category]) return WordGen.levels[category].gen();
+  const pool=CATS[category].words; return pool[Math.floor(Math.random()*pool.length)];
+}
+document.querySelectorAll('.card').forEach(c=>{
+  c.onclick=()=>{
+    document.querySelectorAll('.card').forEach(x=>x.classList.remove('sel')); c.classList.add('sel');
+    mode=c.dataset.mode;
+    $('#courseGroup').classList.toggle('hidden',mode!=='sushi');
+    $('#themeGroup').classList.toggle('hidden',mode!=='pop');
+    // 寿司モードを初めて選んだら寿司ネタを既定に
+    if(mode==='sushi'){ selectCat('sushi'); }
+    $('#startBtn').disabled=false;
+  };
+});
+function selChip(sel,val){ document.querySelectorAll(sel+' .chip').forEach(x=>x.classList.toggle('sel',x.dataset.cat===val||x.dataset.course===val||x.dataset.theme===val)); }
+document.querySelectorAll('#courseChips .chip').forEach(c=>c.onclick=()=>{selChip('#courseChips',c.dataset.course);courseKey=c.dataset.course;});
+document.querySelectorAll('#themeChips .chip').forEach(c=>c.onclick=()=>{selChip('#themeChips',c.dataset.theme);theme=c.dataset.theme;});
+$('#startBtn').onclick=()=>{ initAudio(); resumeAudio(); startGame(); };
+$('#againBtn').onclick=()=>{ resumeAudio(); startGame(); };
+$('#homeBtn').onclick=()=>{ show('home'); };
+$('#quitBtn').onclick=()=>{ running=false; cancelAnimationFrame(rafId); stopBgm(); show('home'); };
+$('#sndBtn').onclick=()=>{ muted=!muted; applyMute(); };
+$('#sndBtn2').onclick=()=>{ muted=!muted; applyMute(); };
+$('#kbdBtn').onclick=()=>{ $('#kbd').classList.toggle('off'); };
+$('#rankBtn').onclick=showRanking;
+$('#ovClose').onclick=()=>$('#overlay').classList.remove('on');
+
+/* =========================================================
+   5) ゲーム開始／ループ／終了
+   ========================================================= */
+function startGame(){
+  money=0;cleared=0;correctKeys=0;missKeys=0;combo=0;maxCombo=0;
+  show('game');
+  const g=$('#game'); g.className='screen active'+(mode==='pop'?' pop theme-'+theme:'');
+  $('#sushiStage').classList.toggle('on',mode==='sushi');
+  $('#hMoneyBox').firstChild.textContent=mode==='sushi'?'食べた額':'スコア';
+  $('#combo').textContent='';
+  if(mode==='sushi') initSushi(); else initPop();
+  totalTime=mode==='sushi'?COURSES[courseKey].time:60;
+  running=true;lastT=performance.now();endAt=lastT+totalTime*1000;
+  startBgm();
+  rafId=requestAnimationFrame(loop);
+}
+function endGame(){
+  running=false;cancelAnimationFrame(rafId);stopBgm();
+  showResult();
+}
+function loop(now){
+  if(!running) return;
+  const dt=(now-lastT)/1000;lastT=now;
+  const remain=Math.max(0,(endAt-now)/1000);
+  $('#hTime').textContent=Math.ceil(remain);
+  $('#timebar').style.width=(remain/totalTime*100)+'%';
+  if(mode==='sushi') stepSushi(dt);
+  updateHUD();
+  if(remain<=0){ endGame(); return; }
+  rafId=requestAnimationFrame(loop);
+}
+function updateHUD(){
+  $('#hMoney').textContent=mode==='sushi'?money+'円':money;
+  const tot=correctKeys+missKeys;
+  $('#hAcc').textContent=(tot?Math.round(correctKeys/tot*100):100)+'%';
+  $('#game').classList.toggle('hot',combo>=6);
+}
+
+/* =========================================================
+   6) 入力（物理キー＆画面キーボード共通）
+   ========================================================= */
+function inputChar(c){
+  if(!running) return;
+  flashKey(c);
+  const r=pressKey(c);
+  if(r==='miss'){ missKeys++; onMiss(); sfx('miss'); return; }
+  correctKeys++; renderHint(); sfx('type');
+  if(r==='done') onWordDone();
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    if($('#home').classList.contains('active')&&!$('#startBtn').disabled){ initAudio();resumeAudio();startGame(); }
+    return;
+  }
+  if(!running) return;
+  if(e.metaKey||e.ctrlKey||e.altKey) return;
+  let c=e.key; if(c.length!==1) return; c=c.toLowerCase();
+  if(!/[a-z0-9\-']/.test(c)) return;
+  e.preventDefault(); inputChar(c);
+});
+function renderHint(){
+  const {done,rest}=hintParts();
+  $('#romaji').innerHTML='<span class="done">'+esc(done)+'</span><span class="rest">'+esc(rest)+'</span>';
+}
+function onMiss(){
+  const tb=$('#typebox'); tb.classList.remove('miss'); void tb.offsetWidth; tb.classList.add('miss');
+  if(mode==='pop'){ combo=0; $('#combo').textContent=''; }
+}
+function onWordDone(){ if(mode==='sushi') sushiCleared(); else popCleared(); }
+function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+
+/* 画面キーボード生成 */
+(function(){
+  const rows=['qwertyuiop','asdfghjkl','zxcvbnm-'];
+  const kb=$('#kbd');
+  rows.forEach(r=>{
+    const row=document.createElement('div'); row.className='krow';
+    for(const ch of r){
+      const k=document.createElement('div'); k.className='key'+(ch==='-'?' wide':''); k.dataset.k=ch; k.textContent=ch==='-'?'ー':ch;
+      k.addEventListener('pointerdown',ev=>{ ev.preventDefault(); inputChar(ch); });
+      row.appendChild(k);
+    }
+    kb.appendChild(row);
+  });
+})();
+function flashKey(c){
+  const k=document.querySelector('.key[data-k="'+c+'"]');
+  if(!k) return; k.classList.add('lit'); setTimeout(()=>k.classList.remove('lit'),90);
+}
+
+/* =========================================================
+   7) 寿司打モード
+   ========================================================= */
+let plates=[],curActive=null,beltW=0,spacing=200;
+const ESCAPE_X=-30;
+function poolWords(){ return CATS[category].words; }
+function priceOf(w){ return w.p || Math.min(600,60+KATA2HIRA(w.k).length*28); }
+function initSushi(){
+  $('#belt').querySelectorAll('.plate').forEach(p=>p.remove());
+  plates=[];curActive=null;beltW=$('#belt').clientWidth;
+  let x=beltW*0.5;
+  for(let i=0;i<6;i++){ makePlate(x); x+=spacing; }
+  selectActive();
+}
+function makePlate(x){
+  const w=pickWord();
+  const disp=w.d.length>7?w.d.slice(0,6)+'…':w.d;
+  const el=document.createElement('div'); el.className='plate';
+  el.innerHTML='<div class="dish">🍣</div><div class="k">'+esc(disp)+'</div>';
+  el.style.transform='translateX('+x+'px)';
+  $('#belt').appendChild(el);
+  plates.push({el,d:w.d,kana:w.k,price:priceOf(w),x});
+}
+function stepSushi(dt){
+  const sp=COURSES[courseKey].speed;
+  for(const p of plates){ p.x-=sp*dt; p.el.style.transform='translateX('+p.x+'px)'; }
+  while(plates.length&&plates[0].x<ESCAPE_X){ const p=plates.shift(); p.el.remove(); combo=0; curActive=null; }
+  while(plates.length<6){ const last=plates.length?plates[plates.length-1].x:beltW; makePlate(Math.max(beltW+20,last+spacing)); }
+  if(curActive!==(plates[0]||null)) selectActive();
+}
+function selectActive(){
+  plates.forEach(p=>p.el.classList.remove('active'));
+  curActive=plates[0]||null;
+  if(curActive){
+    curActive.el.classList.add('active');
+    setWord(curActive.kana);
+    $('#bigword').textContent=curActive.d;
+    $('#reading').textContent = curActive.d!==curActive.kana ? curActive.kana : '';
+    renderHint();
+  }
+}
+function sushiCleared(){
+  const p=plates.shift();
+  money+=p.price;cleared++;combo++;if(combo>maxCombo)maxCombo=combo;
+  sfx('eat');
+  floatText('+'+p.price+'円',p.el,'var(--accent)');
+  spawnParticles(rectCenter(p.el),{count:16,colors:['#ffd34d','#ff5db1','#5ce0ff'],spread:70});
+  shake();
+  p.el.classList.add('eaten'); setTimeout(()=>p.el.remove(),300);
+  curActive=null; selectActive();
+}
+
+/* =========================================================
+   8) popモード（テーマ: pop / gun / sword）
+   ========================================================= */
+function initPop(){ combo=0; $('#combo').textContent=''; nextPop(); }
+function nextPop(){
+  const w=pickWord();
+  setWord(w.k);
+  const bw=$('#bigword'); bw.textContent=w.d;
+  $('#reading').textContent = w.d!==w.k ? w.k : '';
+  bw.style.transition='none'; bw.style.transform='scale(0.5)'; bw.style.opacity='0';
+  requestAnimationFrame(()=>{ bw.style.transition='transform .16s cubic-bezier(.2,1.6,.4,1),opacity .16s'; bw.style.transform='scale(1)'; bw.style.opacity='1'; });
+  renderHint();
+}
+function popCleared(){
+  combo++; if(combo>maxCombo)maxCombo=combo;
+  const gain=100+combo*10; money+=gain; cleared++;
+  const cb=$('#combo'); cb.textContent=combo>=2?combo+' COMBO!':''; cb.classList.remove('big'); void cb.offsetWidth; cb.classList.add('big');
+  if(combo>=2) sfx('combo');
+  const r=rectCenter($('#bigword')); const txt=$('#bigword').textContent;
+  if(theme==='gun'){ fxGun(r,txt); sfx('gun'); }
+  else if(theme==='sword'){ fxSword(r,txt); sfx('sword'); }
+  else { fxPop(r,txt); sfx('pop'); }
+  shake();
+  nextPop();
+}
+
+/* =========================================================
+   9) エフェクト
+   ========================================================= */
+function rectCenter(el){ const r=el.getBoundingClientRect(); const a=$('#app').getBoundingClientRect(); return {x:r.left-a.left+r.width/2,y:r.top-a.top+r.height/2,w:r.width,h:r.height}; }
+function shake(){ const g=$('#game'); g.classList.remove('shake'); void g.offsetWidth; g.classList.add('shake'); }
+function spawnParticles(c,opt){
+  const layer=$('#fxLayer'); const n=opt.count||20; const cols=opt.colors||['#ffd34d'];
+  for(let i=0;i<n;i++){
+    const ang=(Math.PI*2/n)*i+Math.random()*.4, dist=(opt.spread||60)*(0.5+Math.random());
+    const el=document.createElement('div'); el.className='particle';
+    const sz=(opt.size||10)*(0.6+Math.random());
+    el.style.width=sz+'px'; el.style.height=sz+'px';
+    const col=cols[i%cols.length]; el.style.background=col; el.style.color=col;
+    el.style.left=c.x+'px'; el.style.top=c.y+'px';
+    el.style.setProperty('--dx',Math.cos(ang)*dist+'px');
+    el.style.setProperty('--dy',Math.sin(ang)*dist+'px');
+    el.style.setProperty('--rot',(Math.random()*360)+'deg');
+    el.style.setProperty('--life',(0.5+Math.random()*0.4)+'s');
+    if(opt.square) el.style.borderRadius='2px';
+    layer.appendChild(el); setTimeout(()=>el.remove(),950);
+  }
+}
+function floatText(txt,nearEl,color){
+  const c=rectCenter(nearEl);
+  const f=document.createElement('div'); f.className='float'; f.textContent=txt;
+  f.style.color=color||'var(--accent)'; f.style.left=(c.x-16)+'px'; f.style.top=(c.y-20)+'px';
+  $('#fxLayer').appendChild(f); setTimeout(()=>f.remove(),900);
+}
+function fxTextAt(c,txt,color){
+  const t=document.createElement('div'); t.className='fxtext'; t.textContent=txt; t.style.color=color;
+  t.style.left=c.x+'px'; t.style.top=c.y+'px'; $('#fxLayer').appendChild(t); setTimeout(()=>t.remove(),520);
+}
+function fxPop(c,txt){
+  spawnParticles(c,{count:26,colors:['#ff5db1','#7c5cff','#5ce0ff','#ffd34d'],spread:120,size:14});
+  fxTextAt(c,'POP!','#ffd34d');
+}
+function fxGun(c,txt){
+  const m=document.createElement('div'); m.className='muzzle'; m.style.left=c.x+'px'; m.style.top=c.y+'px';
+  $('#fxLayer').appendChild(m); setTimeout(()=>m.remove(),240);
+  spawnParticles(c,{count:22,colors:['#ffd34d','#ff8a3d','#fff'],spread:150,size:8});
+  fxTextAt(c,'BANG!','#ff6b7a');
+  const cl=document.createElement('div'); cl.className='wordclone gun'; cl.textContent=txt;
+  cl.style.left=c.x+'px'; cl.style.top=c.y+'px'; cl.style.fontSize=getComputedStyle($('#bigword')).fontSize;
+  $('#fxLayer').appendChild(cl); setTimeout(()=>cl.remove(),520);
+}
+function fxSword(c,txt){
+  const ang=-20*Math.PI/180, len=Math.max(280,c.w+120);
+  const s=document.createElement('div'); s.className='slashstreak';
+  s.style.left=(c.x-Math.cos(ang)*len/2)+'px'; s.style.top=(c.y-Math.sin(ang)*len/2)+'px';
+  s.style.transform='rotate(-20deg)'; s.style.setProperty('--len',len+'px');
+  $('#fxLayer').appendChild(s); setTimeout(()=>s.remove(),320);
+  const fs=getComputedStyle($('#bigword')).fontSize;
+  ['top','bot'].forEach(half=>{
+    const h=document.createElement('div'); h.className='slicehalf '+half; h.textContent=txt;
+    h.style.left=(c.x-c.w/2)+'px'; h.style.top=(c.y-c.h/2)+'px'; h.style.fontSize=fs;
+    h.style.clipPath = half==='top' ? 'polygon(0 0,100% 0,100% 40%,0 60%)' : 'polygon(0 60%,100% 40%,100% 100%,0 100%)';
+    $('#fxLayer').appendChild(h); setTimeout(()=>h.remove(),520);
+  });
+  spawnParticles(c,{count:14,colors:['#5ce0ff','#fff','#7c5cff'],spread:90,size:7,square:true});
+  fxTextAt({x:c.x+c.w/2,y:c.y-30},'斬','#5ce0ff');
+}
+
+/* =========================================================
+   10) ハイスコア（localStorage）＆ランキング
+   ========================================================= */
+function scoreKey(){ return mode+'_'+category+(mode==='sushi'?'_'+courseKey:''); }
+function scoreLabel(){
+  return (mode==='sushi'?'🍣 '+COURSES[courseKey].label:'💥 pop')+' / '+catLabel();
+}
+function loadScores(key){ try{return JSON.parse(localStorage.getItem('typing_hs_'+key))||[];}catch(e){return [];} }
+function saveScore(entry){
+  const key=scoreKey(); const a=loadScores(key); a.push(entry);
+  a.sort((x,y)=>y.score-x.score); const top=a.slice(0,5);
+  localStorage.setItem('typing_hs_'+key,JSON.stringify(top)); return top;
+}
+function dateStr(){ const d=new Date(); const p=n=>('0'+n).slice(-2); return (d.getMonth()+1)+'/'+d.getDate()+' '+p(d.getHours())+':'+p(d.getMinutes()); }
+
+/* =========================================================
+   11) リザルト
+   ========================================================= */
+function showResult(){
+  const tot=correctKeys+missKeys, acc=tot?Math.round(correctKeys/tot*100):100;
+  const entry={score:money,acc,date:dateStr(),label:scoreLabel()};
+  const top=saveScore(entry);
+  const grid=$('#rGrid'); let html='';
+  if(mode==='sushi'){
+    const pay=COURSES[courseKey].pay;
+    $('#rTitle').textContent=COURSES[courseKey].label+' 結果';
+    html+=row('食べた寿司',money+'円')+row('お皿の数',cleared+'皿')+row('支払い',pay+'円')+row('正確率',acc+'%')+row('打鍵数',tot+'打');
+    grid.innerHTML=html;
+    const diff=money-pay, v=$('#rVerdict');
+    if(diff>=0){ v.textContent='🎉 '+diff+'円分の得！元を取れました！'; v.className='verdict win'; }
+    else { v.textContent='😢 '+(-diff)+'円分の損…また挑戦！'; v.className='verdict lose'; }
+  }else{
+    $('#rTitle').textContent='pop 結果（'+catLabel()+'）';
+    html+=row('スコア',money)+row('弾いた数',cleared+'個')+row('最大コンボ',maxCombo)+row('正確率',acc+'%')+row('打鍵数',tot+'打');
+    grid.innerHTML=html;
+    const v=$('#rVerdict'); v.className='verdict win';
+    v.textContent=money>=2500?'🔥 タイピングマスター！':money>=1200?'👍 いい調子！':'💪 練習あるのみ！';
+  }
+  // ランキング表示（今回の記録をハイライト）
+  let rk='<div style="text-align:center;color:var(--muted);font-size:13px;margin-bottom:6px">🏆 このカテゴリのベスト5</div>';
+  top.forEach((e,i)=>{
+    const me=(e.score===entry.score&&e.date===entry.date)?' me':'';
+    rk+='<div class="rk'+me+'"><span>'+(i+1)+'位　'+e.score+(mode==='sushi'?'円':'点')+'</span><span class="n">正確率'+e.acc+'% ・'+e.date+'</span></div>';
+  });
+  $('#rRank').innerHTML=rk;
+  show('result');
+}
+function row(l,v){ return '<div class="l">'+l+'</div><div class="v">'+v+'</div>'; }
+
+/* ランキング一覧オーバーレイ */
+function showRanking(){
+  const list=$('#ovList'); let html=''; let any=false;
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i); if(!k.startsWith('typing_hs_')) continue;
+    const arr=loadScores(k.slice('typing_hs_'.length)); if(!arr.length) continue; any=true;
+    const best=arr[0];
+    html+='<div class="ovrow"><span>'+esc(best.label||k)+'</span><b>'+best.score+' / 正確率'+best.acc+'%</b></div>';
+  }
+  list.innerHTML=any?html:'<div style="text-align:center;color:var(--muted)">まだ記録がありません。プレイすると保存されます。</div>';
+  $('#overlay').classList.add('on');
+}
+
+/* 初期化 */
+applyMute();
+</script>
+</body>
+</html>

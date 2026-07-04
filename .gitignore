@@ -1,0 +1,14 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# エディタ / ツール
+.vscode/
+.idea/
+
+# Claude Code のプレビュー設定（公開に不要）
+.claude/
+
+# 一時ファイル
+*.log
+*.tmp
